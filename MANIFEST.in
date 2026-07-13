@@ -1,0 +1,37 @@
+include LICENSE
+include README.md
+include CONTRIBUTING.md
+include SECURITY.md
+include CHANGELOG.md
+include .env.example
+include pyproject.toml
+include requirements.txt
+include requirements-dev.txt
+include wmx.py
+
+recursive-include official_viewer/static *.css *.html *.js
+recursive-include official_tests *.py
+recursive-include docs *.md
+
+prune _legacy_private
+prune benchmarks
+prune pano_crawler
+prune tests
+prune output
+prune logs
+prune build
+prune dist
+prune final_submission
+prune poi-panorama-checker
+prune tools
+
+exclude test_robustness.py
+exclude _run_one_city.py
+exclude build_city_ids.py
+exclude baidu_search_city_ids.json
+exclude city_cache.json
+exclude crawler.log
+exclude GITHUB_STAR_PLAN.md
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude *.egg-info

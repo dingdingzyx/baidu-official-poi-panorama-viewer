@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "baidu-official-poi-panorama-viewer"
+version = "1.0.0"
+description = "Loopback-only viewer for documented Baidu Place and Panorama APIs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "dingdingzyx" }]
+keywords = ["baidu-map", "place-api", "panorama", "local-viewer", "official-api"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "requests>=2.25,<3",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.8,<1"]
+
+[project.urls]
+Homepage = "https://github.com/dingdingzyx/baidu-official-poi-panorama-viewer"
+Issues = "https://github.com/dingdingzyx/baidu-official-poi-panorama-viewer/issues"
+
+[project.scripts]
+baidu-poi-panorama-viewer = "official_viewer.server:main"
+
+[tool.setuptools.packages.find]
+include = ["official_viewer*"]
+
+[tool.setuptools.package-data]
+official_viewer = ["static/*.css", "static/*.html", "static/*.js"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

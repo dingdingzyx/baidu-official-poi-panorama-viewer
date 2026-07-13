@@ -1,0 +1,80 @@
+# Python bytecode and tooling
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+*.whl
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.DS_Store
+
+# Local environments and editor files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+.vscode/
+.idea/
+
+# Runtime state and collected third-party data
+output/*
+!output/.gitkeep
+benchmarks/results/
+logs/
+crawler.log
+city_cache.json
+
+# Local Codex state
+.codex-handoff/
+.agents/
+.codex/
+
+# Legacy packages and ad hoc media not part of the public source tree
+*.zip
+final_submission/
+_release/
+poi-panorama-checker/
+GITHUB_STAR_PLAN.md
+image.png
+f6f1f9753d224efe0f344b6648de6217.jpg
+新建 文本文档.txt
+
+# Private local mapping inputs and one-off maintenance helpers. Runtime mapping
+# configuration lives in pano_crawler/data/ and is included in the package.
+/baidu_search_city_ids.json
+/百度地区编码 (1).xlsx
+/build_city_ids.py
+/_run_one_city.py
+/tools/refactor_wmx_modules.py
+/使用说明.txt
+
+# Private legacy crawler implementation, historical benchmarks, and all local
+# runtime state stay on this machine and must never enter the public repository.
+/_legacy_private/
+/pano_crawler/
+/benchmarks/
+/tests/
+/test_robustness.py
+/_release/
+/final_submission/
+/poi-panorama-checker/
+/tools/
+/output/
+/logs/
+/crawler.log
+/city_cache.json
+/.official-viewer/
