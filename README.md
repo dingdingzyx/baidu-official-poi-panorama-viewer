@@ -120,6 +120,10 @@ python -m build
 
 贡献规则见 [CONTRIBUTING.md](CONTRIBUTING.md)，变更记录见 [CHANGELOG.md](CHANGELOG.md)。请不要提交密钥、POI 批量结果、全景 ID、缓存、截图中的密钥或绕过官方配额/权限的代码。
 
+## 致谢
+
+谨以此项目致敬我最好的兄弟34那洁白无暇的爱情。
+
 ## License
 
 本项目代码以 [MIT License](LICENSE) 发布。MIT License 不授予百度地图数据、图像或服务的额外权利。
