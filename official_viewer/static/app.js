@@ -16,6 +16,7 @@ const state = {
 };
 
 const elements = {
+  form: document.getElementById("query-form"),
   city: document.getElementById("city-input"),
   query: document.getElementById("query-input"),
   search: document.getElementById("search-button"),
@@ -42,8 +43,11 @@ function setNotice(message, tone = "") {
 
 function updateControls() {
   elements.search.disabled = state.busy;
+  elements.city.disabled = state.busy;
+  elements.query.disabled = state.busy;
   elements.previous.disabled = state.busy || state.page <= 0;
   elements.next.disabled = state.busy || !state.hasNext;
+  elements.list.setAttribute("aria-busy", String(state.busy));
   elements.pageStatus.textContent = `第 ${state.page + 1} 页`;
 }
 
@@ -373,14 +377,12 @@ async function initialize() {
   }
 }
 
-elements.search.addEventListener("click", () => search(0));
+elements.form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  search(0);
+});
 elements.previous.addEventListener("click", () => search(state.page - 1));
 elements.next.addEventListener("click", () => search(state.page + 1));
-elements.query.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    search(0);
-  }
-});
 
 updateControls();
 initialize();

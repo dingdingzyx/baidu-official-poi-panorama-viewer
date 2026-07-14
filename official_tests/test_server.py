@@ -149,6 +149,16 @@ class LocalServerTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(self.session.calls, [])
 
+        other_port = self.port + 1 if self.port < 65535 else self.port - 1
+        status, _, _ = self.fetch(
+            "/api/search",
+            method="POST",
+            body=body,
+            origin=f"http://127.0.0.1:{other_port}",
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(self.session.calls, [])
+
         connection = HTTPConnection("127.0.0.1", self.port, timeout=3)
         connection.request("GET", "/api/health", headers={"Host": "example.invalid"})
         response = connection.getresponse()

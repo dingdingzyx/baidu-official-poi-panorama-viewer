@@ -154,6 +154,13 @@ input {
   color: #12633e;
 }
 
+.data-notice {
+  color: #52646e;
+  font-size: 12px;
+  margin: 4px 2px 0;
+  max-width: 980px;
+}
+
 .work-grid {
   display: grid;
   gap: 20px;

@@ -36,9 +36,15 @@ class ReleaseSurfaceTests(unittest.TestCase):
         browser_code = (ROOT / "official_viewer" / "static" / "app.js").read_text(
             encoding="utf-8"
         )
+        markup = (ROOT / "official_viewer" / "static" / "index.html").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("getPanoramaByPOIId", browser_code)
         self.assertIn("state.panorama.setId(data.id)", browser_code)
         self.assertIn('searchParams.set("callback", callbackName)', browser_code)
         self.assertIn('searchParams.set("s", "1")', browser_code)
+        self.assertIn('elements.form.addEventListener("submit"', browser_code)
+        self.assertIn('<form id="query-form"', markup)
+        self.assertIn('class="data-notice"', markup)
         self.assertNotIn("panoid", browser_code.lower())
         self.assertNotIn("download", browser_code.lower())

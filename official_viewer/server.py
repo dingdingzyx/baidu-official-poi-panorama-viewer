@@ -268,20 +268,51 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _is_allowed_host(host_header: str) -> bool:
-        host = host_header.strip().lower()
-        if host.startswith("["):
-            host = host[1:].split("]", 1)[0]
-        else:
-            host = host.split(":", 1)[0]
-        return host.rstrip(".") in LOCAL_HOSTS
+        return ViewerRequestHandler._local_authority(host_header) is not None
 
     def _is_allowed_origin(self) -> bool:
-        origin = self.headers.get("Origin", "")
+        origin_authority = self._local_authority(
+            self.headers.get("Origin", ""), require_http_scheme=True
+        )
+        request_authority = self._local_authority(self.headers.get("Host", ""))
+        return (
+            origin_authority is not None
+            and request_authority is not None
+            and origin_authority == request_authority
+        )
+
+    @staticmethod
+    def _local_authority(
+        value: str, *, require_http_scheme: bool = False
+    ) -> tuple[str, int] | None:
+        """Return a normalized loopback host/port pair or reject the authority."""
+
         try:
-            parsed = urlsplit(origin)
+            parsed = urlsplit(value if require_http_scheme else f"//{value}")
         except ValueError:
-            return False
-        return parsed.scheme == "http" and parsed.hostname in LOCAL_HOSTS
+            return None
+        if require_http_scheme:
+            if (
+                parsed.scheme != "http"
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+            ):
+                return None
+        elif parsed.scheme or parsed.path or parsed.query or parsed.fragment:
+            return None
+        if parsed.username is not None or parsed.password is not None:
+            return None
+        host = (parsed.hostname or "").rstrip(".").lower()
+        if host not in LOCAL_HOSTS:
+            return None
+        try:
+            port = parsed.port or 80
+        except ValueError:
+            return None
+        if not 1 <= port <= 65535:
+            return None
+        return host, port
 
     def _serve_static(self, path: str) -> None:
         assets = {

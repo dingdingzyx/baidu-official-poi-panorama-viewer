@@ -1,8 +1,13 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
   pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -50,4 +55,4 @@ jobs:
           .wheel-venv/bin/python -m pip install -r requirements.txt
           .wheel-venv/bin/python -m pip install --no-index --find-links dist --no-deps baidu-official-poi-panorama-viewer
           .wheel-venv/bin/baidu-poi-panorama-viewer --help
-          .wheel-venv/bin/python -c "from official_viewer import __version__; assert __version__ == '1.0.0'"
+          .wheel-venv/bin/python -c "from official_viewer import __version__; assert __version__ == '1.0.1'"

@@ -13,7 +13,7 @@ flowchart LR
 
 ## Trust boundaries
 
-- The Python server binds only to `127.0.0.1`. It accepts a fixed set of static files and same-origin JSON endpoints only.
+- The Python server binds only to `127.0.0.1`. It accepts a fixed set of static files and same-origin JSON endpoints only; POST origins must match the request's loopback host and port exactly.
 - `OfficialPlaceClient` owns the Server AK and sends it only to the fixed documented Place API endpoint. Calls are serialized and not retried automatically.
 - The Browser AK is deliberately supplied to the browser because that is how JavaScript APIs work. Referer restrictions are its authorization boundary.
 - The official JavaScript SDK dynamically evaluates modules and applies inline styles. The CSP allows only those two compatibility exceptions; inline JavaScript and plain-HTTP script sources remain blocked.

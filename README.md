@@ -85,7 +85,8 @@ baidu-poi-panorama-viewer
 
 - Server AK 只保存在 Python 进程内并只发送给固定的 `https://api.map.baidu.com/place/v2/search` 端点；不会发送给浏览器或写入日志。
 - Browser AK 必然会随浏览器地图脚本使用，其安全边界是 Referer 白名单；仍应最小化白名单并定期轮换。
-- HTTP 服务固定绑定 `127.0.0.1`，拒绝非本机 Host/Origin，并且没有 CORS、下载、文件浏览或任意 URL 请求接口。
+- HTTP 服务固定绑定 `127.0.0.1`，POST 请求要求 `Origin` 与当前回环 Host/端口完全一致；没有 CORS、下载、文件浏览或任意 URL 请求接口。
+- 界面会提示：每次查询会按操作把城市、关键词和所选地点发送至百度地图开放平台；本程序仅保存本地请求计数，不保存地点或全景结果。
 - 本地使用账本仅记录日期与请求次数，路径默认为 `.official-viewer/`，并被 Git 忽略。
 - 同一用量目录一次只允许一个查看器进程，避免多进程意外绕过本地日预算；异常终止遗留的锁仅会在记录进程已不存在时自动回收。
 - 发现安全问题请阅读 [SECURITY.md](SECURITY.md)，不要在公开 Issue 中发布 AK、日志、完整 API 响应或地址数据。
