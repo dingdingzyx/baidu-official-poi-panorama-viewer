@@ -7,6 +7,7 @@
 - Preserved pagination when malformed official result items are safely filtered from a full response page.
 - Added clearer selected-place and accessibility states, a same-origin resource policy, Python 3.13/3.14 CI coverage, and GitHub maintenance templates.
 - Simplified the public ignore and source-distribution rules and moved package versioning to one source of truth.
+- Updated CI actions to their tested current majors and configured pip dependency updates to avoid unnecessary minimum-version churn.
 
 ## 1.0.1 - 2026-07-14
 
