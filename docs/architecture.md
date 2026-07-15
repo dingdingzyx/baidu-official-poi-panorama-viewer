@@ -7,6 +7,7 @@ flowchart LR
   Q --> P[Documented Place API]
   P --> L
   L --> B[Local browser UI]
+  B --> C[Memory-only page cache]
   B --> S[User explicitly selects one POI]
   S --> J[Official JavaScript Panorama SDK]
 ```
@@ -18,7 +19,8 @@ flowchart LR
 - The Browser AK is deliberately supplied to the browser because that is how JavaScript APIs work. Referer restrictions are its authorization boundary.
 - The official JavaScript SDK dynamically evaluates modules and applies inline styles. The CSP allows only those two compatibility exceptions; inline JavaScript and plain-HTTP script sources remain blocked.
 - The browser asks the local server for a panorama budget permit only after a user selects a POI. The official SDK resolves and displays the panorama in memory; the app never renders or persists the returned panorama ID.
+- Place pages already visited during the active query are cached only in the current page's JavaScript memory. Back navigation reuses them without another official request; a refresh clears the cache.
 
 ## Data lifecycle
 
-The server returns the current page of official place display data to the browser and does not write it to disk. The only persistent local file is `usage.json`, containing the date and two integer counters. See [data-provenance.md](data-provenance.md).
+The server returns the current page of official place display data to the browser and does not write it to disk. Up to 20 pages can be requested explicitly for one city/keyword pair, matching the documented 400-result boundary. The only persistent local file is `usage.json`, containing the date and two integer counters. See [data-provenance.md](data-provenance.md).

@@ -1,0 +1,48 @@
+name: Bug report
+description: 报告可复现的公开版问题；请勿提交 AK 或完整地图响应。
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 请先确认问题来自本项目，而不是百度控制台配额、白名单或权限设置。
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: 例如 1.1.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Windows 11, Python 3.12, Edge 版本号
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: 使用脱敏输入描述最小复现步骤，不要粘贴 AK、完整响应、地址数据或截图中的凭据。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: 我确认内容不包含 AK、cookies、完整 API 响应、批量 POI 或全景 ID。
+          required: true

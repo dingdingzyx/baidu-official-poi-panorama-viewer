@@ -108,6 +108,26 @@ class OfficialPlaceClientTests(unittest.TestCase):
                 client.search("", "酒店", 0)
         self.assertEqual(session.calls, [])
 
+    def test_query_length_matches_official_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            client, session = self.make_client(
+                Path(temporary), FakeResponse({"status": 0, "results": []})
+            )
+            client.search("四平", "酒" * 45, 0)
+            with self.assertRaises(InputValidationError):
+                client.search("四平", "酒" * 46, 0)
+        self.assertEqual(len(session.calls), 1)
+
+    def test_page_limit_matches_official_four_hundred_result_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            client, session = self.make_client(
+                Path(temporary), FakeResponse({"status": 0, "results": []})
+            )
+            client.search("四平", "酒店", 19)
+            with self.assertRaises(InputValidationError):
+                client.search("四平", "酒店", 20)
+        self.assertEqual(len(session.calls), 1)
+
     def test_multiple_city_input_is_rejected_without_a_request(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             client, session = self.make_client(
@@ -130,6 +150,29 @@ class OfficialPlaceClientTests(unittest.TestCase):
             with self.assertRaisesRegex(OfficialApiError, "IP 白名单"):
                 client.search("四平", "酒店", 0)
 
+    def test_official_statuses_return_actionable_messages(self) -> None:
+        cases = {
+            4: "配额",
+            5: "Server AK",
+            8: "关键词",
+            9: "权限",
+            200: "应用",
+            201: "停用",
+            211: "SN 校验",
+            240: "未开通",
+            401: "并发",
+        }
+        for status, expected in cases.items():
+            with (
+                self.subTest(status=status),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                client, _ = self.make_client(
+                    Path(temporary), FakeResponse({"status": status})
+                )
+                with self.assertRaisesRegex(OfficialApiError, expected):
+                    client.search("四平", "酒店", 0)
+
     def test_non_list_results_are_safe(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             client, _ = self.make_client(
@@ -137,3 +180,13 @@ class OfficialPlaceClientTests(unittest.TestCase):
             )
             page = client.search("四平", "酒店", 0)
         self.assertEqual(page.results, ())
+
+    def test_full_raw_page_keeps_next_page_when_invalid_items_are_filtered(
+        self,
+    ) -> None:
+        payload = {"status": 0, "results": [{"invalid": index} for index in range(20)]}
+        with tempfile.TemporaryDirectory() as temporary:
+            client, _ = self.make_client(Path(temporary), FakeResponse(payload))
+            page = client.search("四平", "酒店", 0)
+        self.assertEqual(page.results, ())
+        self.assertTrue(page.has_next)

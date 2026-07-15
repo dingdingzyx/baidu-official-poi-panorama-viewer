@@ -218,6 +218,11 @@ input {
   border-bottom: 0;
 }
 
+.result-item[data-selected] {
+  background: #eef7f3;
+  box-shadow: inset 3px 0 #187a57;
+}
+
 .result-name {
   color: #163344;
   font-weight: 700;

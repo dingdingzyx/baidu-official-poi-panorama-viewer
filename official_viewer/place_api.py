@@ -16,6 +16,8 @@ from .quota import DailyUsageLedger
 PLACE_SEARCH_URL = "https://api.map.baidu.com/place/v2/search"
 _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 _CITY_SEPARATORS = frozenset({",", "，", ";", "；", "、"})
+_MAX_CITY_LENGTH = 50
+_MAX_QUERY_LENGTH = 45
 
 
 class InputValidationError(ValueError):
@@ -31,14 +33,28 @@ class OfficialApiUnavailable(OfficialApiError):
 
 
 _STATUS_MESSAGES = {
-    1: "官方地点服务暂不可用，请稍后手动重试。",
+    1: "官方地点服务内部错误或超时，请稍后手动重试。",
     2: "官方地点服务拒绝了请求参数，请检查城市和关键词。",
-    3: "官方地点服务暂不可用，请稍后手动重试。",
+    3: "官方地点服务权限校验失败，请检查 Server AK 与应用配置。",
+    4: "官方地点服务当日配额已用尽，请在官方控制台确认额度。",
+    5: "Server AK 不存在、已删除或无效，请检查应用配置。",
+    8: "关键词包含官方地点服务无法解析的字符，请调整后重试。",
+    9: "Server AK 缺少当前服务所需权限，请在官方控制台确认。",
+    101: "官方请求未携带有效的 Server AK。",
+    200: "找不到 Server AK 对应的应用，请检查 AK。",
+    201: "Server AK 对应应用已被停用，请在官方控制台解禁。",
+    202: "Server AK 对应应用已被删除，请重新创建应用。",
     203: "AK 应用类型不匹配；地点检索需要 Server 类型 AK。",
     210: "Server AK 的 IP 白名单未匹配当前公网出口 IP。",
+    211: "Server AK 的 SN 校验失败；本工具需要使用 IP 校验方式。",
     220: "Browser AK 的 Referer 白名单未匹配当前页面来源。",
     230: "AK 配额不足或调用受限，请在百度地图开放平台控制台确认。",
     240: "所需百度地图服务未开通或 AK 没有相应权限。",
+    250: "百度地图开放平台用户信息无效，请检查账号状态。",
+    251: "百度地图开放平台用户尚未激活或已停用。",
+    252: "百度地图开放平台用户已被停用，请联系官方支持。",
+    260: "官方地点服务不存在，请检查服务配置。",
+    261: "官方地点服务已被禁用或下线，请查阅官方公告。",
     302: "百度地图服务配额已用尽，请在官方控制台确认额度。",
     401: "百度地图服务并发受限；本程序已串行发送请求，请稍后手动重试。",
 }
@@ -82,8 +98,8 @@ def validate_search_input(
 ) -> tuple[str, str, int]:
     """Validate one explicit city/keyword/page interaction."""
 
-    cleaned_city = _clean_text(city, "城市", 50)
-    cleaned_query = _clean_text(query, "关键词", 80)
+    cleaned_city = _clean_text(city, "城市", _MAX_CITY_LENGTH)
+    cleaned_query = _clean_text(query, "关键词", _MAX_QUERY_LENGTH)
     if any(
         character in _CITY_SEPARATORS or character.isspace()
         for character in cleaned_city
@@ -99,7 +115,7 @@ def validate_search_input(
 def _safe_text(value: object, maximum: int) -> str:
     if not isinstance(value, str):
         return ""
-    return value.strip().replace("\x00", "")[:maximum]
+    return _CONTROL_CHARACTER.sub(" ", value).strip()[:maximum]
 
 
 def _safe_location(value: object) -> dict[str, float] | None:
@@ -217,6 +233,7 @@ class OfficialPlaceClient:
         raw_results = payload.get("results")
         if not isinstance(raw_results, list):
             raw_results = []
+        raw_result_count = len(raw_results)
         results = tuple(
             place
             for item in raw_results
@@ -232,7 +249,7 @@ class OfficialPlaceClient:
         )
         has_next = page_number + 1 < self._settings.max_pages_per_query and (
             (total is not None and total > (page_number + 1) * self._settings.page_size)
-            or len(results) == self._settings.page_size
+            or raw_result_count >= self._settings.page_size
         )
         return PlaceSearchPage(
             city=city_text,

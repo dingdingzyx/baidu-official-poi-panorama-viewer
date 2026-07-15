@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "baidu-official-poi-panorama-viewer"
-version = "1.0.1"
+dynamic = ["version"]
 description = "Loopback-only viewer for documented Baidu Place and Panorama APIs."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: GIS",
 ]
 dependencies = [
   "requests>=2.25,<3",
@@ -33,6 +37,9 @@ Issues = "https://github.com/dingdingzyx/baidu-official-poi-panorama-viewer/issu
 
 [project.scripts]
 baidu-poi-panorama-viewer = "official_viewer.server:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "official_viewer.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["official_viewer*"]

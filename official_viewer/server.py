@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from . import __version__
 from .config import (
     ConfigurationError,
     ViewerSettings,
@@ -125,7 +126,7 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def version_string(self) -> str:
-        return "OfficialPOIViewer/1.0"
+        return f"OfficialPOIViewer/{__version__}"
 
     def log_message(self, _format: str, *_args: object) -> None:
         """Avoid request logging that could retain user search terms locally."""
@@ -352,6 +353,7 @@ class ViewerRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
         self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
         self.send_header(
             "Permissions-Policy", "geolocation=(), camera=(), microphone=()"

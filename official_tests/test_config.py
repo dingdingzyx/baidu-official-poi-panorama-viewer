@@ -30,11 +30,14 @@ class ConfigurationTests(unittest.TestCase):
 
             self.assertEqual(settings.usage_dir, (root / "runtime").resolve())
             self.assertEqual(settings.daily_place_limit, 123)
+            self.assertEqual(settings.max_pages_per_query, 20)
+            self.assertEqual(settings.max_results_per_query, 400)
             self.assertNotIn("server-secret", repr(settings))
             public = public_configuration(settings)
             self.assertNotIn("server_ak", public)
             self.assertNotIn("server-secret", str(public))
             self.assertEqual(public["browser_ak"], "browser-public")
+            self.assertEqual(public["max_results_per_query"], 400)
 
     def test_process_environment_overrides_dotenv(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -25,7 +25,7 @@ class ViewerSettings:
     daily_place_limit: int = 4500
     daily_panorama_limit: int = 100
     page_size: int = 20
-    max_pages_per_query: int = 5
+    max_pages_per_query: int = 20
     request_timeout_seconds: float = 10.0
 
     @property

@@ -3,6 +3,11 @@
 const state = {
   browserAk: null,
   page: 0,
+  pageSize: 20,
+  maxPagesPerQuery: 20,
+  maxResultsPerQuery: 400,
+  pageCount: 1,
+  hasSearched: false,
   hasNext: false,
   city: "",
   query: "",
@@ -13,6 +18,7 @@ const state = {
   mapReady: false,
   busy: false,
   panoramaBusy: false,
+  pageCache: new Map(),
 };
 
 const elements = {
@@ -41,14 +47,32 @@ function setNotice(message, tone = "") {
   }
 }
 
+function readSearchInputs() {
+  return {
+    city: elements.city.value.trim(),
+    query: elements.query.value.trim(),
+  };
+}
+
+function inputsMatchActiveSearch() {
+  if (!state.hasSearched) {
+    return false;
+  }
+  const inputs = readSearchInputs();
+  return inputs.city === state.city && inputs.query === state.query;
+}
+
 function updateControls() {
+  const activeInputs = inputsMatchActiveSearch();
   elements.search.disabled = state.busy;
   elements.city.disabled = state.busy;
   elements.query.disabled = state.busy;
-  elements.previous.disabled = state.busy || state.page <= 0;
-  elements.next.disabled = state.busy || !state.hasNext;
+  elements.previous.disabled = state.busy || !activeInputs || state.page <= 0;
+  elements.next.disabled = state.busy || !activeInputs || !state.hasNext;
   elements.list.setAttribute("aria-busy", String(state.busy));
-  elements.pageStatus.textContent = `第 ${state.page + 1} 页`;
+  elements.pageStatus.textContent = state.hasSearched
+    ? `第 ${state.page + 1} / ${state.pageCount} 页`
+    : "尚未查询";
 }
 
 async function requestJson(path, options = {}) {
@@ -193,6 +217,9 @@ function createResultItem(place) {
   const select = document.createElement("button");
   select.type = "button";
   select.textContent = "查看全景";
+  select.dataset.uid = place.uid;
+  select.setAttribute("aria-label", `查看 ${place.name} 的全景`);
+  select.setAttribute("aria-pressed", "false");
   select.addEventListener("click", () => selectPlace(place));
   item.append(text, select);
   return item;
@@ -208,17 +235,38 @@ function renderResults(data) {
   } else {
     data.results.forEach((place) => elements.list.appendChild(createResultItem(place)));
   }
-  const total = Number.isInteger(data.total) ? `官方返回 ${data.total} 条` : "官方结果";
-  elements.summary.textContent = `${total}；本工具每次查询最多显示 100 条。`;
+  const hasTotal = Number.isInteger(data.total);
+  const total = hasTotal ? `官方返回 ${data.total} 条` : "官方结果";
+  const resultPageCount = hasTotal
+    ? Math.ceil(data.total / state.pageSize)
+    : state.maxPagesPerQuery;
+  state.pageCount = Math.max(
+    1,
+    Math.min(state.maxPagesPerQuery, resultPageCount)
+  );
+  elements.summary.textContent =
+    `${total}；按官方边界最多显示 ${state.maxResultsPerQuery} 条。`;
   state.hasNext = Boolean(data.has_next);
   updateControls();
 }
 
-async function search(page) {
-  const city = elements.city.value.trim();
-  const query = elements.query.value.trim();
+async function search(page, options = {}) {
+  const inputs = readSearchInputs();
+  const city = (options.city ?? inputs.city).trim();
+  const query = (options.query ?? inputs.query).trim();
+  const useCache = Boolean(options.useCache);
   if (!city || !query) {
     setNotice("请填写城市和关键词。", "error");
+    return;
+  }
+  if (useCache && !inputsMatchActiveSearch()) {
+    setNotice("检索条件已修改，请先重新搜索。", "error");
+    return;
+  }
+  if (useCache && state.pageCache.has(page)) {
+    state.page = page;
+    renderResults(state.pageCache.get(page));
+    setNotice("已从本次会话缓存恢复，未发送新的官方请求。", "success");
     return;
   }
   state.busy = true;
@@ -229,9 +277,14 @@ async function search(page) {
       method: "POST",
       body: JSON.stringify({ city, query, page }),
     });
+    if (!useCache || city !== state.city || query !== state.query) {
+      state.pageCache.clear();
+    }
     state.city = city;
     state.query = query;
     state.page = data.page;
+    state.hasSearched = true;
+    state.pageCache.set(data.page, data);
     renderResults(data);
     const remaining = data.usage?.place_remaining;
     const suffix = Number.isInteger(remaining) ? ` 本地地点预算剩余 ${remaining} 次。` : "";
@@ -253,6 +306,15 @@ function showPlaceOnMap(place) {
   state.map.clearOverlays();
   state.map.addOverlay(new window.BMap.Marker(point));
   state.map.centerAndZoom(point, 17);
+}
+
+function markSelectedPlace(uid) {
+  elements.list.querySelectorAll(".result-item").forEach((item) => {
+    const button = item.querySelector("button");
+    const selected = button?.dataset.uid === uid;
+    item.toggleAttribute("data-selected", selected);
+    button?.setAttribute("aria-pressed", String(selected));
+  });
 }
 
 function setPanoramaButtonsDisabled(disabled) {
@@ -317,6 +379,7 @@ async function selectPlace(place) {
     return;
   }
   elements.selectedPlace.textContent = place.name;
+  markSelectedPlace(place.uid);
   showPlaceOnMap(place);
   if (!state.mapReady) {
     elements.panoramaStatus.textContent = "官方地图尚不可用。请检查 Browser AK 和 Referer 白名单。";
@@ -366,6 +429,22 @@ async function initialize() {
       requestJson("/api/config", { method: "GET", headers: {} }),
     ]);
     state.browserAk = config.browser_ak || null;
+    if (Number.isInteger(config.page_size) && config.page_size > 0) {
+      state.pageSize = config.page_size;
+    }
+    if (
+      Number.isInteger(config.max_pages_per_query) &&
+      config.max_pages_per_query > 0
+    ) {
+      state.maxPagesPerQuery = config.max_pages_per_query;
+    }
+    if (
+      Number.isInteger(config.max_results_per_query) &&
+      config.max_results_per_query > 0
+    ) {
+      state.maxResultsPerQuery = config.max_results_per_query;
+    }
+    updateControls();
     const placeStatus = health.place_search_configured ? "Server AK 已配置" : "Server AK 未配置";
     const panoramaStatus = health.panorama_configured ? "Browser AK 已配置" : "Browser AK 未配置";
     elements.configuration.textContent = `${placeStatus} · ${panoramaStatus}`;
@@ -379,10 +458,25 @@ async function initialize() {
 
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
-  search(0);
+  const inputs = readSearchInputs();
+  search(0, { city: inputs.city, query: inputs.query });
 });
-elements.previous.addEventListener("click", () => search(state.page - 1));
-elements.next.addEventListener("click", () => search(state.page + 1));
+elements.previous.addEventListener("click", () =>
+  search(state.page - 1, {
+    city: state.city,
+    query: state.query,
+    useCache: true,
+  })
+);
+elements.next.addEventListener("click", () =>
+  search(state.page + 1, {
+    city: state.city,
+    query: state.query,
+    useCache: true,
+  })
+);
+elements.city.addEventListener("input", updateControls);
+elements.query.addEventListener("input", updateControls);
 
 updateControls();
 initialize();

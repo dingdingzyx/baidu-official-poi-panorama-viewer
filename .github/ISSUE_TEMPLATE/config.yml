@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Baidu Map Open Platform documentation
+    url: https://lbsyun.baidu.com/
+    about: AK、白名单、配额和服务权限问题请先查阅官方文档或控制台。
+  - name: Private security report
+    url: https://github.com/dingdingzyx/baidu-official-poi-panorama-viewer/security/advisories/new
+    about: 涉及凭据或安全边界的问题请私下报告。

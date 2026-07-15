@@ -27,3 +27,4 @@ Tests must be deterministic and offline. A pull request must not require a maint
 - Add focused tests for changed behavior and security boundaries.
 - Keep Browser AK handling compatible with strict Referer allowlists; Server AKs must never reach the browser or logs.
 - Update README and `docs/` when an official API contract or data boundary changes.
+- Keep page reuse memory-only; do not add browser storage or on-disk POI caches.

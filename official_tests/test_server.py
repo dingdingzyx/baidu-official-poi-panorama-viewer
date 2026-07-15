@@ -105,6 +105,9 @@ class LocalServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers["X-Frame-Options"], "DENY")
         self.assertEqual(headers["Referrer-Policy"], "strict-origin-when-cross-origin")
+        self.assertEqual(headers["Cross-Origin-Resource-Policy"], "same-origin")
+        self.assertIn("OfficialPOIViewer/1.1.0", headers["Server"])
+        self.assertIn(b'"max_results_per_query":400', body)
         self.assertNotIn(b"server-secret", body)
 
         status, _, body = self.fetch("/api/config")

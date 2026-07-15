@@ -1,0 +1,26 @@
+name: Feature request
+description: 提议符合官方 API 展示边界的新功能。
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: 说明当前用户流程中的具体问题。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: 说明预期行为及可能增加的官方 API 调用。
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: 该建议不需要抓取、批量枚举、结果持久化、下载或全景 ID 导出。
+          required: true
