@@ -31,7 +31,7 @@
       </form>
 
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
-      <p id="data-notice" class="data-notice">查询时，城市、关键词和所选地点会按操作发送至百度地图开放平台。本程序只持久化本地请求计数；翻页缓存仅存在于当前页面内存，刷新即清空。</p>
+      <p id="data-notice" class="data-notice">查询时，城市、关键词和所选地点会按操作发送至百度地图开放平台。本程序只持久化本地请求计数；查询缓存和去重统计仅存在于当前页面内存，刷新即清空。</p>
 
       <section class="work-grid">
         <section class="results-pane" aria-labelledby="results-title">
@@ -40,7 +40,13 @@
               <p class="eyebrow">Official Place Search</p>
               <h2 id="results-title">地点结果</h2>
             </div>
-            <p id="result-summary" class="result-summary"></p>
+            <div class="results-heading-meta">
+              <div class="view-toggle" role="group" aria-label="结果视图">
+                <button id="page-view" type="button" aria-pressed="true">本页</button>
+                <button id="loaded-view" type="button" aria-pressed="false">已加载去重</button>
+              </div>
+              <p id="result-summary" class="result-summary"></p>
+            </div>
           </div>
           <ol id="results-list" class="results-list" aria-live="polite"></ol>
           <nav class="pagination" aria-label="结果分页">
@@ -69,6 +75,7 @@
       </section>
     </main>
 
+    <script src="/assets/query_session.js" defer></script>
     <script src="/assets/app.js" defer></script>
   </body>
 </html>

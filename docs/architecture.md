@@ -8,6 +8,7 @@ flowchart LR
   P --> L
   L --> B[Local browser UI]
   B --> C[Memory-only page cache]
+  C --> D[Cross-page UID union and counters]
   B --> S[User explicitly selects one POI]
   S --> J[Official JavaScript Panorama SDK]
 ```
@@ -15,12 +16,12 @@ flowchart LR
 ## Trust boundaries
 
 - The Python server binds only to `127.0.0.1`. It accepts a fixed set of static files and same-origin JSON endpoints only; POST origins must match the request's loopback host and port exactly.
-- `OfficialPlaceClient` owns the Server AK and sends it only to the fixed documented Place API endpoint. Calls are serialized and not retried automatically.
+- `OfficialPlaceClient` owns the Server AK and sends it only to the fixed documented Place API endpoint. Calls are serialized and not retried automatically. Overlapping requests with the same normalized city, keyword, and page share one in-flight result; the client does not retain a completed response cache.
 - The Browser AK is deliberately supplied to the browser because that is how JavaScript APIs work. Referer restrictions are its authorization boundary.
 - The official JavaScript SDK dynamically evaluates modules and applies inline styles. The CSP allows only those two compatibility exceptions; inline JavaScript and plain-HTTP script sources remain blocked.
 - The browser asks the local server for a panorama budget permit only after a user selects a POI. The official SDK resolves and displays the panorama in memory; the app never renders or persists the returned panorama ID.
-- Place pages already visited during the active query are cached only in the current page's JavaScript memory. Back navigation reuses them without another official request; a refresh clears the cache.
+- Place pages already visited during the active query are cached only in the current page's JavaScript memory. Back navigation reuses them without another official request. A UID union supports a loaded-results view and duplicate counters without changing the original page order; a refresh clears all of it.
 
 ## Data lifecycle
 
-The server returns the current page of official place display data to the browser and does not write it to disk. Up to 20 pages can be requested explicitly for one city/keyword pair, matching the documented 400-result boundary. The only persistent local file is `usage.json`, containing the date and two integer counters. See [data-provenance.md](data-provenance.md).
+The server returns the current page of official place display data to the browser and does not write it to disk. Up to 20 pages can be requested explicitly for one city/keyword pair. The official `total` field is capped at 150, so a full POI page remains the continuation signal until the hard page limit. The only persistent local file is `usage.json`, containing the date and two integer counters. See [data-provenance.md](data-provenance.md).

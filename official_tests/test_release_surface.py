@@ -41,6 +41,7 @@ class ReleaseSurfaceTests(unittest.TestCase):
             "include .env.example",
             "recursive-include official_viewer/static",
             "recursive-include official_tests",
+            "*.cjs",
             "exclude .env",
         ):
             self.assertIn(required_rule, manifest)
@@ -49,6 +50,9 @@ class ReleaseSurfaceTests(unittest.TestCase):
         browser_code = (ROOT / "official_viewer" / "static" / "app.js").read_text(
             encoding="utf-8"
         )
+        session_code = (
+            ROOT / "official_viewer" / "static" / "query_session.js"
+        ).read_text(encoding="utf-8")
         markup = (ROOT / "official_viewer" / "static" / "index.html").read_text(
             encoding="utf-8"
         )
@@ -60,10 +64,18 @@ class ReleaseSurfaceTests(unittest.TestCase):
         self.assertIn("pageCache: new Map()", browser_code)
         self.assertIn("inputsMatchActiveSearch", browser_code)
         self.assertIn("useCache: true", browser_code)
+        self.assertIn("if (state.busy)", browser_code)
+        self.assertIn("buildLoadedResultView", browser_code)
+        self.assertIn("buildLoadedResultView", session_code)
         self.assertIn('<form id="query-form"', markup)
         self.assertIn('maxlength="45"', markup)
         self.assertIn('class="data-notice"', markup)
+        self.assertLess(
+            markup.index("/assets/query_session.js"),
+            markup.index("/assets/app.js"),
+        )
         self.assertNotIn("panoid", browser_code.lower())
+        self.assertNotIn("panoid", session_code.lower())
         self.assertNotIn("download", browser_code.lower())
         self.assertNotIn("localStorage", browser_code)
         self.assertNotIn("sessionStorage", browser_code)

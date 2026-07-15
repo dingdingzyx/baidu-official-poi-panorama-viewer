@@ -3,10 +3,7 @@
 const state = {
   browserAk: null,
   page: 0,
-  pageSize: 20,
-  maxPagesPerQuery: 20,
   maxResultsPerQuery: 400,
-  pageCount: 1,
   hasSearched: false,
   hasNext: false,
   city: "",
@@ -19,6 +16,8 @@ const state = {
   busy: false,
   panoramaBusy: false,
   pageCache: new Map(),
+  resultView: "page",
+  selectedUid: null,
 };
 
 const elements = {
@@ -29,6 +28,8 @@ const elements = {
   previous: document.getElementById("previous-page"),
   next: document.getElementById("next-page"),
   pageStatus: document.getElementById("page-status"),
+  pageView: document.getElementById("page-view"),
+  loadedView: document.getElementById("loaded-view"),
   summary: document.getElementById("result-summary"),
   list: document.getElementById("results-list"),
   notice: document.getElementById("notice"),
@@ -69,9 +70,19 @@ function updateControls() {
   elements.query.disabled = state.busy;
   elements.previous.disabled = state.busy || !activeInputs || state.page <= 0;
   elements.next.disabled = state.busy || !activeInputs || !state.hasNext;
+  elements.pageView.disabled = state.busy || !state.hasSearched;
+  elements.loadedView.disabled = state.busy || !state.hasSearched;
+  elements.pageView.setAttribute(
+    "aria-pressed",
+    String(state.resultView === "page")
+  );
+  elements.loadedView.setAttribute(
+    "aria-pressed",
+    String(state.resultView === "loaded")
+  );
   elements.list.setAttribute("aria-busy", String(state.busy));
   elements.pageStatus.textContent = state.hasSearched
-    ? `第 ${state.page + 1} / ${state.pageCount} 页`
+    ? `第 ${state.page + 1} 页`
     : "尚未查询";
 }
 
@@ -222,35 +233,52 @@ function createResultItem(place) {
   select.setAttribute("aria-pressed", "false");
   select.addEventListener("click", () => selectPlace(place));
   item.append(text, select);
+  if (state.selectedUid === place.uid) {
+    item.toggleAttribute("data-selected", true);
+    select.setAttribute("aria-pressed", "true");
+  }
   return item;
 }
 
 function renderResults(data) {
+  const loaded = window.QuerySessionTools.buildLoadedResultView(state.pageCache);
+  const visibleResults =
+    state.resultView === "loaded" ? loaded.results : data.results;
   elements.list.replaceChildren();
-  if (!data.results.length) {
+  if (!visibleResults.length) {
     const empty = document.createElement("li");
     empty.className = "empty-row";
-    empty.textContent = "本页没有可展示的官方地点结果。";
+    empty.textContent =
+      state.resultView === "loaded"
+        ? "已加载页面中没有可展示的官方地点结果。"
+        : "本页没有可展示的官方地点结果。";
     elements.list.appendChild(empty);
   } else {
-    data.results.forEach((place) => elements.list.appendChild(createResultItem(place)));
+    visibleResults.forEach((place) =>
+      elements.list.appendChild(createResultItem(place))
+    );
   }
-  const hasTotal = Number.isInteger(data.total);
-  const total = hasTotal ? `官方返回 ${data.total} 条` : "官方结果";
-  const resultPageCount = hasTotal
-    ? Math.ceil(data.total / state.pageSize)
-    : state.maxPagesPerQuery;
-  state.pageCount = Math.max(
-    1,
-    Math.min(state.maxPagesPerQuery, resultPageCount)
-  );
+  let reportedTotal = "官方未报告总数";
+  if (Number.isInteger(data.total)) {
+    reportedTotal = data.reported_total_capped
+      ? `官方报告已达 ${data.total} 条统计上限`
+      : `官方报告 ${data.total} 条`;
+  }
+  const duplicateSummary = loaded.duplicateCount
+    ? `，重复 ${loaded.duplicateCount} 条`
+    : "";
   elements.summary.textContent =
-    `${total}；按官方边界最多显示 ${state.maxResultsPerQuery} 条。`;
+    `${reportedTotal}；已加载 ${loaded.loadedPageCount} 页、` +
+    `${loaded.uniqueCount} 个唯一 POI${duplicateSummary}；` +
+    `本查询最多 ${state.maxResultsPerQuery} 条。`;
   state.hasNext = Boolean(data.has_next);
   updateControls();
 }
 
 async function search(page, options = {}) {
+  if (state.busy) {
+    return;
+  }
   const inputs = readSearchInputs();
   const city = (options.city ?? inputs.city).trim();
   const query = (options.query ?? inputs.query).trim();
@@ -279,6 +307,7 @@ async function search(page, options = {}) {
     });
     if (!useCache || city !== state.city || query !== state.query) {
       state.pageCache.clear();
+      state.selectedUid = null;
     }
     state.city = city;
     state.query = query;
@@ -309,12 +338,26 @@ function showPlaceOnMap(place) {
 }
 
 function markSelectedPlace(uid) {
+  state.selectedUid = uid;
   elements.list.querySelectorAll(".result-item").forEach((item) => {
     const button = item.querySelector("button");
     const selected = button?.dataset.uid === uid;
     item.toggleAttribute("data-selected", selected);
     button?.setAttribute("aria-pressed", String(selected));
   });
+}
+
+function setResultView(resultView) {
+  if (resultView !== "page" && resultView !== "loaded") {
+    return;
+  }
+  state.resultView = resultView;
+  const data = state.pageCache.get(state.page);
+  if (data) {
+    renderResults(data);
+  } else {
+    updateControls();
+  }
 }
 
 function setPanoramaButtonsDisabled(disabled) {
@@ -429,15 +472,6 @@ async function initialize() {
       requestJson("/api/config", { method: "GET", headers: {} }),
     ]);
     state.browserAk = config.browser_ak || null;
-    if (Number.isInteger(config.page_size) && config.page_size > 0) {
-      state.pageSize = config.page_size;
-    }
-    if (
-      Number.isInteger(config.max_pages_per_query) &&
-      config.max_pages_per_query > 0
-    ) {
-      state.maxPagesPerQuery = config.max_pages_per_query;
-    }
     if (
       Number.isInteger(config.max_results_per_query) &&
       config.max_results_per_query > 0
@@ -477,6 +511,8 @@ elements.next.addEventListener("click", () =>
 );
 elements.city.addEventListener("input", updateControls);
 elements.query.addEventListener("input", updateControls);
+elements.pageView.addEventListener("click", () => setResultView("page"));
+elements.loadedView.addEventListener("click", () => setResultView("loaded"));
 
 updateControls();
 initialize();

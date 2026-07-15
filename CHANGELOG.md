@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 - 2026-07-15
+
+- Added `address_result=false` so Place Search returns POI records instead of consuming result slots with address records that cannot drive the panorama viewer.
+- Added exact-key request coalescing so overlapping requests for the same city, keyword, and page share one official call without increasing API concurrency or retaining a response cache.
+- Added a memory-only loaded-results view with deterministic cross-page UID deduplication and unique/duplicate coverage counters while preserving the original per-page ranking.
+- Corrected pagination copy for the official 150-item reported-total cap and stopped treating that capped value as the real number of available pages.
+- Added offline concurrency, result-type, capped-total, JavaScript behavior, and release-surface regression tests.
+
 ## 1.1.0 - 2026-07-15
 
 - Aligned the query length, status messages, and manual pagination limit with the documented Place Search contract, allowing up to 400 explicitly paged results.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -41,6 +42,20 @@ class FakeSession:
 
     def close(self) -> None:
         self.closed = True
+
+
+class BlockingFakeSession(FakeSession):
+    def __init__(self, response: object) -> None:
+        super().__init__(response)
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def get(self, url: str, *, params: dict[str, object], timeout: float) -> object:
+        self.calls.append({"url": url, "params": params, "timeout": timeout})
+        self.started.set()
+        if not self.release.wait(timeout=2):
+            raise AssertionError("test did not release the fake request")
+        return self.response
 
 
 class OfficialPlaceClientTests(unittest.TestCase):
@@ -86,6 +101,7 @@ class OfficialPlaceClientTests(unittest.TestCase):
                 "query": "酒店",
                 "region": "四平",
                 "city_limit": "true",
+                "address_result": "false",
                 "output": "json",
                 "scope": "1",
                 "page_size": 20,
@@ -190,3 +206,71 @@ class OfficialPlaceClientTests(unittest.TestCase):
             page = client.search("四平", "酒店", 0)
         self.assertEqual(page.results, ())
         self.assertTrue(page.has_next)
+
+    def test_reported_total_cap_does_not_stop_a_full_page(self) -> None:
+        payload = {
+            "status": 0,
+            "result_type": "poi_type",
+            "total": 150,
+            "results": [{"invalid": index} for index in range(20)],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            client, _ = self.make_client(Path(temporary), FakeResponse(payload))
+            page = client.search("四平", "酒店", 7)
+
+        self.assertTrue(page.reported_total_capped)
+        self.assertTrue(page.has_next)
+        self.assertEqual(page.as_dict()["result_type"], "poi_type")
+
+    def test_explicit_non_poi_result_does_not_offer_another_page(self) -> None:
+        payload = {
+            "status": 0,
+            "result_type": "city_type",
+            "total": 150,
+            "results": [{"invalid": index} for index in range(20)],
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            client, _ = self.make_client(Path(temporary), FakeResponse(payload))
+            page = client.search("四平", "酒店", 0)
+
+        self.assertEqual(page.result_type, "city_type")
+        self.assertFalse(page.has_next)
+
+    def test_identical_concurrent_searches_share_one_official_request(self) -> None:
+        payload = {"status": 0, "result_type": "poi_type", "results": []}
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            settings = ViewerSettings(
+                server_ak="server-secret",
+                browser_ak="browser-public",
+                usage_dir=root,
+                daily_place_limit=10,
+                daily_panorama_limit=5,
+            )
+            ledger = DailyUsageLedger(
+                root / "usage.json", place_limit=10, panorama_limit=5
+            )
+            session = BlockingFakeSession(FakeResponse(payload))
+            client = OfficialPlaceClient(settings, ledger, session=session)
+            pages: list[object] = []
+            errors: list[BaseException] = []
+
+            def run_search() -> None:
+                try:
+                    pages.append(client.search("四平", "酒店", 0))
+                except BaseException as exc:  # pragma: no cover - assertion aid
+                    errors.append(exc)
+
+            first = threading.Thread(target=run_search)
+            second = threading.Thread(target=run_search)
+            first.start()
+            self.assertTrue(session.started.wait(timeout=1))
+            second.start()
+            session.release.set()
+            first.join(timeout=2)
+            second.join(timeout=2)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(pages), 2)
+        self.assertIs(pages[0], pages[1])
+        self.assertEqual(len(session.calls), 1)

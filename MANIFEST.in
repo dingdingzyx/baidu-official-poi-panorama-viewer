@@ -10,7 +10,7 @@ include requirements-dev.txt
 include wmx.py
 
 recursive-include official_viewer/static *.css *.html *.js
-recursive-include official_tests *.py
+recursive-include official_tests *.py *.cjs
 recursive-include docs *.md
 
 exclude .env

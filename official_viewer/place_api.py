@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import threading
+from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,6 +19,7 @@ _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 _CITY_SEPARATORS = frozenset({",", "，", ";", "；", "、"})
 _MAX_CITY_LENGTH = 50
 _MAX_QUERY_LENGTH = 45
+_REPORTED_TOTAL_CAP = 150
 
 
 class InputValidationError(ValueError):
@@ -66,6 +68,8 @@ class PlaceSearchPage:
     query: str
     page: int
     total: int | None
+    reported_total_capped: bool
+    result_type: str | None
     results: tuple[dict[str, object], ...]
     has_next: bool
 
@@ -75,6 +79,8 @@ class PlaceSearchPage:
             "query": self.query,
             "page": self.page,
             "total": self.total,
+            "reported_total_capped": self.reported_total_capped,
+            "result_type": self.result_type,
             "results": list(self.results),
             "has_next": self.has_next,
         }
@@ -174,6 +180,8 @@ class OfficialPlaceClient:
         self._session = session or requests.Session()
         self._session.trust_env = False
         self._request_lock = threading.Lock()
+        self._inflight_lock = threading.Lock()
+        self._inflight: dict[tuple[str, str, int], Future[PlaceSearchPage]] = {}
 
     def close(self) -> None:
         self._session.close()
@@ -188,10 +196,38 @@ class OfficialPlaceClient:
         if not self._settings.server_ak:
             raise OfficialApiUnavailable("Server AK 未配置，无法调用官方地点检索。")
 
+        request_key = (city_text, query_text, page_number)
+        with self._inflight_lock:
+            shared = self._inflight.get(request_key)
+            is_owner = shared is None
+            if shared is None:
+                shared = Future()
+                self._inflight[request_key] = shared
+
+        if not is_owner:
+            return shared.result()
+
+        try:
+            page_result = self._search_once(city_text, query_text, page_number)
+        except BaseException as exc:
+            shared.set_exception(exc)
+            raise
+        else:
+            shared.set_result(page_result)
+            return page_result
+        finally:
+            with self._inflight_lock:
+                if self._inflight.get(request_key) is shared:
+                    del self._inflight[request_key]
+
+    def _search_once(
+        self, city_text: str, query_text: str, page_number: int
+    ) -> PlaceSearchPage:
         params = {
             "query": query_text,
             "region": city_text,
             "city_limit": "true",
+            "address_result": "false",
             "output": "json",
             "scope": "1",
             "page_size": self._settings.page_size,
@@ -247,15 +283,26 @@ class OfficialPlaceClient:
             and total_value >= 0
             else None
         )
-        has_next = page_number + 1 < self._settings.max_pages_per_query and (
-            (total is not None and total > (page_number + 1) * self._settings.page_size)
-            or raw_result_count >= self._settings.page_size
+        result_type = _safe_text(payload.get("result_type"), 32) or None
+        can_paginate = result_type in (None, "poi_type")
+        has_next = (
+            can_paginate
+            and page_number + 1 < self._settings.max_pages_per_query
+            and (
+                (
+                    total is not None
+                    and total > (page_number + 1) * self._settings.page_size
+                )
+                or raw_result_count >= self._settings.page_size
+            )
         )
         return PlaceSearchPage(
             city=city_text,
             query=query_text,
             page=page_number,
             total=total,
+            reported_total_capped=total is not None and total >= _REPORTED_TOTAL_CAP,
+            result_type=result_type,
             results=results,
             has_next=has_next,
         )

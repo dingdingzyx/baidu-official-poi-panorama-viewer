@@ -29,8 +29,11 @@ jobs:
         run: python -m ruff check wmx.py official_viewer official_tests
       - name: Format check
         run: python -m ruff format --check wmx.py official_viewer official_tests
-      - name: Browser script syntax
-        run: node --check official_viewer/static/app.js
+      - name: Browser script checks
+        run: |
+          node --check official_viewer/static/query_session.js
+          node --check official_viewer/static/app.js
+          node official_tests/query_session.test.cjs
 
   test:
     runs-on: ubuntu-latest
@@ -70,4 +73,4 @@ jobs:
           .wheel-venv/bin/python -m pip install -r requirements.txt
           .wheel-venv/bin/python -m pip install --no-index --find-links dist --no-deps baidu-official-poi-panorama-viewer
           .wheel-venv/bin/baidu-poi-panorama-viewer --help
-          .wheel-venv/bin/python -c "from official_viewer import __version__; assert __version__ == '1.1.0'"
+          .wheel-venv/bin/python -c "from official_viewer import __version__; assert __version__ == '1.2.0'"

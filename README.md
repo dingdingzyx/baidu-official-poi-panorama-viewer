@@ -73,13 +73,13 @@ baidu-poi-panorama-viewer
 
 | 行为 | 保护措施 |
 | --- | --- |
-| 地点检索 | 官方接口单页最多 20 条；本工具一组城市/关键词最多 20 页，即最多 400 条展示结果。 |
-| 翻页 | 仅在用户点击尚未访问的页时发起一条官方请求；已访问页面保存在当前页面内存中，返回上一页不会重复调用。刷新页面后缓存清空。 |
-| 并发 | Python 端固定串行发送官方 Place API 请求，不提供 400/800/1000 并发模式。 |
+| 地点检索 | 固定 `city_limit=true`、`address_result=false` 和 `scope=1`；官方接口单页最多 20 条，本工具一组城市/关键词最多 20 页，即最多 400 条展示结果。 |
+| 翻页与去重 | 仅在用户点击尚未访问的页时发起一条官方请求；已访问页面保存在当前页面内存中，可切换“本页/已加载去重”并查看唯一 UID 与重复数。刷新页面后全部清空。 |
+| 并发 | Python 端固定串行发送官方 Place API 请求。同一时刻完全相同的城市、关键词和页码请求会共享一次结果，不会增加官方并发；不提供 400/800/1000 并发模式。 |
 | 日预算 | 默认本地保护为地点 4500 次、全景 100 次/日，只保存日期和计数，不保存 POI 或全景 ID。额度以你的官方控制台和合同为准；不要将本地值设置高于获授权额度。 |
 | 全景 | 只有点击“查看全景”才申请一次本地展示许可并调用 Browser AK 对应的官方 SDK。 |
 
-“400 条”是官方地点检索对一组条件的分页边界，不是城市导出上限，更不是全量保证。本工具不会自动跑满 20 页；每个新页面都必须由用户显式点击，同时会话内缓存避免返回已看页面时重复消耗配额。
+“400 条”是本工具按官方分页边界设置的单组条件硬上限，不是城市导出上限，更不是全量保证。当前官方接口文档说明 `total` 最多报告 150；因此界面把 150 标记为统计上限，并在官方仍返回满页 POI 时允许用户继续显式翻页。本工具不会自动跑满 20 页；每个新页面都必须由用户点击，会话内缓存和 UID 去重只减少重复查看，不会制造新的上游召回。
 
 地点检索参数和每页上限以[官方 Place API 文档](https://lbsyun.baidu.com/docs/webapi?title=placev3%2Fguide%2Fwebservice-placeapiV3%2FinterfaceDocumentV2)为准。官方 Place API FAQ 也说明 POI 数据不保证实时或完整，因此没有合规方式用本工具证明“某城市 100% 全量”。
 
@@ -88,7 +88,7 @@ baidu-poi-panorama-viewer
 - Server AK 只保存在 Python 进程内并只发送给固定的 `https://api.map.baidu.com/place/v2/search` 端点；不会发送给浏览器或写入日志。
 - Browser AK 必然会随浏览器地图脚本使用，其安全边界是 Referer 白名单；仍应最小化白名单并定期轮换。
 - HTTP 服务固定绑定 `127.0.0.1`，POST 请求要求 `Origin` 与当前回环 Host/端口完全一致；没有 CORS、下载、文件浏览或任意 URL 请求接口。
-- 界面会提示：每次查询会按操作把城市、关键词和所选地点发送至百度地图开放平台；本程序仅把请求计数写入磁盘。已访问 POI 页只暂存在当前页面内存，不写入磁盘、`localStorage` 或 `sessionStorage`，刷新即清空。
+- 界面会提示：每次查询会按操作把城市、关键词和所选地点发送至百度地图开放平台；本程序仅把请求计数写入磁盘。已访问 POI 页、跨页 UID 集合和去重计数只暂存在当前页面内存，不写入磁盘、`localStorage` 或 `sessionStorage`，刷新即清空。
 - 本地使用账本仅记录日期与请求次数，路径默认为 `.official-viewer/`，并被 Git 忽略。
 - 同一用量目录一次只允许一个查看器进程，避免多进程意外绕过本地日预算；异常终止遗留的锁仅会在记录进程已不存在时自动回收。
 - 发现安全问题请阅读 [SECURITY.md](SECURITY.md)，不要在公开 Issue 中发布 AK、日志、完整 API 响应或地址数据。
@@ -114,6 +114,9 @@ python -m pip install -r requirements-dev.txt
 python -m ruff check wmx.py official_viewer official_tests
 python -m ruff format --check wmx.py official_viewer official_tests
 python -m unittest discover -s official_tests -v
+node --check official_viewer/static/query_session.js
+node --check official_viewer/static/app.js
+node official_tests/query_session.test.cjs
 python -m build
 ```
 
